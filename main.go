@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/urth-inc/vrm-transform/pkg/glb"
+	"github.com/urth-inc/vrm-transform/pkg/vrm"
 	"io/ioutil"
 	"os"
-	"vrm-transform/pkg/glb"
-	"vrm-transform/pkg/vrm"
 )
 
 func main() {

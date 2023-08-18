@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"vrm-transform/pkg/glb"
+	"vrm-transform/pkg/vrm"
 )
 
 func main() {
@@ -22,6 +23,8 @@ func main() {
 		fmt.Println("File read error:", err)
 		return
 	}
+
+	fmt.Println(vrm.IsVRM(fileData))
 
 	myglb, err := glb.ReadBinary(fileData)
 	if err != nil {

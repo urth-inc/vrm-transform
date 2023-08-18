@@ -1,4 +1,4 @@
 # vrm-transform
 
-VRMを最適化するCLIツール
+glb/VRMを最適化するCLIツール
 

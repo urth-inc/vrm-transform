@@ -1,4 +1,4 @@
-module vrm-transform
+module github.com/urth-inc/vrm-transform
 
 go 1.21.0
 

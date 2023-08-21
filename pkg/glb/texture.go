@@ -1,12 +1,16 @@
 package glb
 
 import (
+	"fmt"
 	"golang.org/x/exp/slices"
+	"net/http"
+	"os"
 	"os/exec"
 
 	"github.com/google/uuid"
 	"github.com/h2non/bimg"
 	"github.com/qmuntal/gltf"
+	"github.com/urth-inc/vrm-transform/internal/fileUtil"
 )
 
 func resizeImage(buf []byte, width, height int) (image []byte, err error) {
@@ -21,31 +25,58 @@ func resizeImage(buf []byte, width, height int) (image []byte, err error) {
 }
 
 func toKtx2Image(buf []byte) (image []byte, err error) {
-    // バージョン4のランダムなUUIDを生成します
-    var path: string = uuid.New()
+	var mimeType string = http.DetectContentType(buf)
 
-	// path := fmt.Sprintf("image_%d", idx)
-	// dumpBin(img, path)
-	// dumpBin(b, path)
+	var inputPath string = "/tmp/" + uuid.New().String()
+	var outputPath string = "/tmp/" + uuid.New().String()
+	if mimeType == "image/png" {
+		inputPath += ".png"
+	} else if mimeType == "image/jpeg" {
+		inputPath += ".jpg"
+	} else {
+		return nil, fmt.Errorf("invalid image type: %s", mimeType)
+	}
 
-	fmt.Println("path:", path)
+	fmt.Println("path:", inputPath)
 
-	cmd := exec.Command("toktx", "--2d", "--genmipmap", "--target_type", "RGBA", "--t2", "--encode", "etc1s", "--clevel", "5", "--qlevel", "255", path, path)
+	file, err := os.Create(inputPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	_, err = file.Write(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command("toktx", "--bcmp", "--threads", "2", "--2d", "--genmipmap", "--t2", "--encode", "etc1s", "--clevel", "1", "--qlevel", "255", outputPath, inputPath)
+	// cmd := exec.Command("toktx", "--2d", "--genmipmap", "--target_type", "RGBA", "--t2", "--encode", "etc1s", "--clevel", "5", "--qlevel", "255", path, path)
 	// cmd := exec.Command("toktx", "--2d", "--genmipmap", "--bcmp", "--target_type", "RGBA", "--t2", "--encode", "uastc", path, path)
 
-	// env := os.Environ()
-	// env = append(env, "PATH=/home/kira/Downloads/apps/KTX-Software-4.2.1-Linux-x86_64/bin:"+os.Getenv("PATH"))
-	// env = append(env, "LD_LIBRARY_PATH=/home/kira/Downloads/apps/KTX-Software-4.2.1-Linux-x86_64/lib:"+os.Getenv("LD_LIBRARY_PATH"))
-	// cmd.Env = env
+	env := os.Environ()
+	env = append(env, "PATH=/home/kira/Downloads/apps/KTX-Software-4.2.1-Linux-x86_64/bin:"+os.Getenv("PATH"))
+	env = append(env, "LD_LIBRARY_PATH=/home/kira/Downloads/apps/KTX-Software-4.2.1-Linux-x86_64/lib:"+os.Getenv("LD_LIBRARY_PATH"))
+	cmd.Env = env
 
-	// err := cmd.Run()
-	// if err != nil {
-	// >fmt.Println(err)
-	// }
+	err = cmd.Run()
+	if err != nil {
+		return nil, err
+	}
 
-	// ktx := readFile(path + ".ktx2")
-	// newBin = append(newBin, ktx...)
-	// doc.BufferViews[idx].ByteLength = uint32(len(ktx))
+	outputPath += ".ktx2"
+
+	ktx2file, err := fileUtil.ReadFile(outputPath)
+	if err != nil {
+		return nil, err
+	}
+
+	os.Remove(inputPath)
+	os.Remove(outputPath)
+
+	fmt.Println("Done!")
+
+	return ktx2file, nil
 }
 
 func (g *GLB) ResizeTexture(width, height int) (err error) {
@@ -91,7 +122,7 @@ func (g *GLB) ResizeTexture(width, height int) (err error) {
 	return nil
 }
 
-func (g *GLB) ToKTX2Texture() (err error) {
+func (g *GLB) ToKtx2Texture() (err error) {
 	var jsonDocument gltf.Document = g.GltfDocument
 	var bin []byte = g.BIN
 
@@ -99,6 +130,7 @@ func (g *GLB) ToKTX2Texture() (err error) {
 
 	for _, image := range jsonDocument.Images {
 		imagesBufferViews = append(imagesBufferViews, *image.BufferView)
+		image.MimeType = "image/ktx2"
 	}
 
 	var newBin []byte = make([]byte, 0)
@@ -128,6 +160,17 @@ func (g *GLB) ToKTX2Texture() (err error) {
 		jsonDocument.BufferViews[idx].ByteOffset = offset
 		offset += jsonDocument.BufferViews[idx].ByteLength
 	}
+
+	for idx, texture := range g.GltfDocument.Textures {
+		g.GltfDocument.Textures[idx].Extensions = map[string]interface{}{
+			"KHR_texture_basisu": map[string]interface{}{
+				"source": texture.Source,
+			},
+		}
+	}
+
+	g.GltfDocument.ExtensionsUsed = append(jsonDocument.ExtensionsUsed, "KHR_texture_basisu")
+	g.GltfDocument.ExtensionsRequired = append(jsonDocument.ExtensionsRequired, "KHR_texture_basisu")
 
 	g.BIN = newBin
 

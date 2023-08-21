@@ -9,7 +9,11 @@ import (
 )
 
 func main() {
-	filePath := "./assets/avatar01_0806.vrm"
+	filePath := "./assets/avatar02.vrm"
+	// filePath := "./assets/BoxFox.glb"
+	// filePath := "./assets/kemomimi.vrm"
+	// filePath := "./assets/avatar01_0806.vrm"
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("File open error:", err)
@@ -32,7 +36,12 @@ func main() {
 		return
 	}
 
-	err = myglb.ResizeTexture(128, 128)
+	// err = myglb.ResizeTexture(128, 128)
+	// if err != nil {
+	// 	fmt.Println("File read error:", err)
+	// }
+
+	err = myglb.ToKtx2Texture()
 	if err != nil {
 		fmt.Println("File read error:", err)
 	}
@@ -43,7 +52,8 @@ func main() {
 		return
 	}
 
-	filePath = "output.glb"
+	// filePath = "output.glb"
+	filePath = "avatar.vrm"
 	file, err = os.Create(filePath)
 	if err != nil {
 		fmt.Println("File create error:", err)
@@ -56,5 +66,4 @@ func main() {
 		fmt.Println("File write error:", err)
 		return
 	}
-
 }

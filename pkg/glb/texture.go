@@ -14,8 +14,6 @@ import (
 )
 
 func resizeImage(buf []byte, width, height int) (image []byte, err error) {
-	// TODO: check if image is PNG or JPEG
-	// TODO: check if image is larger than width and height
 	image, err = bimg.NewImage(buf).Enlarge(width, height)
 	if err != nil {
 		return nil, err
@@ -118,6 +116,7 @@ func (g *GLB) ResizeTexture(width, height int) (err error) {
 	}
 
 	g.BIN = newBin
+	g.GltfDocument.Buffers[0].ByteLength = uint32(len(newBin))
 
 	return nil
 }
@@ -167,12 +166,14 @@ func (g *GLB) ToKtx2Texture() (err error) {
 				"source": texture.Source,
 			},
 		}
+		g.GltfDocument.Textures[idx].Source = nil
 	}
 
 	g.GltfDocument.ExtensionsUsed = append(jsonDocument.ExtensionsUsed, "KHR_texture_basisu")
 	g.GltfDocument.ExtensionsRequired = append(jsonDocument.ExtensionsRequired, "KHR_texture_basisu")
 
 	g.BIN = newBin
+	g.GltfDocument.Buffers[0].ByteLength = uint32(len(newBin))
 
 	return nil
 }

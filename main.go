@@ -2,17 +2,25 @@ package main
 
 import (
 	"fmt"
+	"github.com/qmuntal/gltf"
 	"github.com/urth-inc/vrm-transform/pkg/glb"
 	"github.com/urth-inc/vrm-transform/pkg/vrm"
+
 	"io/ioutil"
 	"os"
 )
 
+func jsonDump(g glb.GLB, path string) {
+	doc := g.GltfDocument
+	gltf.Save(&doc, "./"+path)
+}
+
+// this script is for debug
 func main() {
-	filePath := "./assets/avatar02.vrm"
-	// filePath := "./assets/BoxFox.glb"
+	filePath := "./assets/world_JIP.glb"
 	// filePath := "./assets/kemomimi.vrm"
 	// filePath := "./assets/avatar01_0806.vrm"
+	// filePath := "./assets/shrine.glb"
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -28,7 +36,7 @@ func main() {
 		return
 	}
 
-	fmt.Println(vrm.IsVRM(fileData))
+	fmt.Println("isVRM:", vrm.IsVRM(fileData))
 
 	myglb, err := glb.ReadBinary(fileData)
 	if err != nil {
@@ -36,15 +44,17 @@ func main() {
 		return
 	}
 
-	// err = myglb.ResizeTexture(128, 128)
-	// if err != nil {
-	// 	fmt.Println("File read error:", err)
-	// }
+	jsonDump(myglb, "before.json")
+	err = myglb.ResizeTexture(1024, 1024)
+	if err != nil {
+		fmt.Println("File read error:", err)
+	}
 
 	err = myglb.ToKtx2Texture()
 	if err != nil {
 		fmt.Println("File read error:", err)
 	}
+	jsonDump(myglb, "after.json")
 
 	buf, err := glb.WriteBinary(myglb)
 	if err != nil {
@@ -52,8 +62,8 @@ func main() {
 		return
 	}
 
-	// filePath = "output.glb"
-	filePath = "avatar.vrm"
+	filePath = "output.glb"
+	// filePath = "avatar.vrm"
 	file, err = os.Create(filePath)
 	if err != nil {
 		fmt.Println("File create error:", err)
@@ -66,4 +76,6 @@ func main() {
 		fmt.Println("File write error:", err)
 		return
 	}
+
+	gltf.Open("output.glb")
 }

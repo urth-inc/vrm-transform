@@ -8,21 +8,18 @@ import (
 )
 
 func resizeImage(buf []byte, width, height int) (image []byte, err error) {
-	image, err = bimg.NewImage(buf)
-	if err != nil {
-		return nil, err
-	}
+	newImage := bimg.NewImage(buf)
 
-	size, err := image.Size()
+	size, err := newImage.Size()
 	if err != nil {
 		return nil, err
 	}
 
 	if size.Width <= width && size.Height <= height {
-		return image, nil
+		return buf, nil
 	}
 
-	image, err = image.Enlarge(width, height)
+	image, err = newImage.Enlarge(width, height)
 	if err != nil {
 		return nil, err
 	}

@@ -57,7 +57,7 @@ func toKtx2Image(buf []byte) (image []byte, err error) {
 		return nil, err
 	}
 
-	cmd := exec.Command("toktx", "--bcmp", "--threads", "2", "--2d", "--genmipmap", "--t2", "--encode", "etc1s", "--clevel", "1", "--qlevel", "255", outputPath, inputPath)
+	cmd := exec.Command("toktx", "--linear", "--srgb", "--bcmp", "--threads", "2", "--2d", "--genmipmap", "--t2", "--encode", "etc1s", "--clevel", "1", "--qlevel", "255", outputPath, inputPath)
 
 	err = cmd.Run()
 	if err != nil {

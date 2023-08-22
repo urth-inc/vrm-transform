@@ -35,8 +35,6 @@ func toKtx2Image(buf []byte) (image []byte, err error) {
 		return nil, fmt.Errorf("invalid image type: %s", mimeType)
 	}
 
-	fmt.Println("path:", inputPath)
-
 	file, err := os.Create(inputPath)
 	if err != nil {
 		return nil, err
@@ -49,13 +47,6 @@ func toKtx2Image(buf []byte) (image []byte, err error) {
 	}
 
 	cmd := exec.Command("toktx", "--bcmp", "--threads", "2", "--2d", "--genmipmap", "--t2", "--encode", "etc1s", "--clevel", "1", "--qlevel", "255", outputPath, inputPath)
-	// cmd := exec.Command("toktx", "--2d", "--genmipmap", "--target_type", "RGBA", "--t2", "--encode", "etc1s", "--clevel", "5", "--qlevel", "255", path, path)
-	// cmd := exec.Command("toktx", "--2d", "--genmipmap", "--bcmp", "--target_type", "RGBA", "--t2", "--encode", "uastc", path, path)
-
-	env := os.Environ()
-	env = append(env, "PATH=/home/kira/Downloads/apps/KTX-Software-4.2.1-Linux-x86_64/bin:"+os.Getenv("PATH"))
-	env = append(env, "LD_LIBRARY_PATH=/home/kira/Downloads/apps/KTX-Software-4.2.1-Linux-x86_64/lib:"+os.Getenv("LD_LIBRARY_PATH"))
-	cmd.Env = env
 
 	err = cmd.Run()
 	if err != nil {
@@ -71,8 +62,6 @@ func toKtx2Image(buf []byte) (image []byte, err error) {
 
 	os.Remove(inputPath)
 	os.Remove(outputPath)
-
-	fmt.Println("Done!")
 
 	return ktx2file, nil
 }

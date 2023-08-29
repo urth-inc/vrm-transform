@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/h2non/bimg"
 	"github.com/qmuntal/gltf"
 	"github.com/urth-inc/vrm-transform/internal/fileUtil"
+	"github.com/urth-inc/vrm-transform/internal/imageUtil"
 )
 
 func resizeImage(buf []byte, width, height int) (image []byte, err error) {
@@ -57,9 +59,31 @@ func toKtx2Image(buf []byte) (image []byte, err error) {
 		return nil, err
 	}
 
-	cmd := exec.Command("toktx", "--linear", "--srgb", "--bcmp", "--threads", "2", "--2d", "--genmipmap", "--t2", "--encode", "etc1s", "--clevel", "1", "--qlevel", "255", outputPath, inputPath)
+	var width, height int
+	width, height, err = imageUtil.GetImageSize(buf)
+	if err != nil {
+		return nil, err
+	}
 
-	err = cmd.Run()
+	var params []string = make([]string, 0)
+
+	params = append(params, "--genmipmap")
+	params = append(params, "--t2")
+	params = append(params, "--encode", "etc1s")
+	params = append(params, "--clevel", "1")
+	params = append(params, "--qlevel", "255")
+	params = append(params, "--assign_oetf", "linear")
+
+	if width%4 != 0 || height%4 != 0 {
+		width = width + (4-width%4)%4
+		height = height + (4-height%4)%4
+
+		params = append(params, "--resize", strconv.Itoa(width)+"x"+strconv.Itoa(height))
+	}
+
+	params = append(params, outputPath, inputPath)
+
+	err = exec.Command("toktx", params...).Run()
 	if err != nil {
 		return nil, err
 	}

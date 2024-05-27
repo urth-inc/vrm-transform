@@ -17,10 +17,7 @@ func jsonDump(g glb.GLB, path string) {
 
 // this script is for debug
 func main() {
-	filePath := "./assets/world_JIP.glb"
-	// filePath := "./assets/kemomimi.vrm"
-	// filePath := "./assets/avatar01_0806.vrm"
-	// filePath := "./assets/shrine.glb"
+	filePath := "./assets/test.glb"
 
 	file, err := os.Open(filePath)
 	if err != nil {

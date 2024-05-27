@@ -32,6 +32,8 @@ You can use Docker to set up a consistent development environment. Follow the st
 git clone git@github.com:urth-inc/vrm-transform.git
 ```
 
+Add `test.glb` to `/assets` directory. You can use any GLB/VRM file for testing.
+
 2. Build `vrm-transform` image using Docker:
 
 ```

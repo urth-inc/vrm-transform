@@ -2,11 +2,12 @@ package glb
 
 import (
 	"fmt"
-	"golang.org/x/exp/slices"
 	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
+
+	"golang.org/x/exp/slices"
 
 	"github.com/google/uuid"
 	"github.com/h2non/bimg"

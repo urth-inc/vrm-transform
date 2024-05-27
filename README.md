@@ -88,4 +88,3 @@ We recommend using the `glTF Report` to check your Model.
 ## License
 
 This project is licensed under the MIT License.
-

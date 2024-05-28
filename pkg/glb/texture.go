@@ -36,7 +36,39 @@ func resizeImage(buf []byte, width, height int) (image []byte, err error) {
 	return image, nil
 }
 
-func toKtx2Image(buf []byte) (image []byte, err error) {
+func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, outputPath string, isSRGB bool) []string {
+	var params []string = make([]string, 0)
+
+	params = append(params, "--genmipmap")
+	params = append(params, "--t2")
+
+	if !isSRGB {
+		params = append(params, "--assign_oetf", "linear", "--assign_primaries", "none")
+	}
+
+	if ktx2Mode == "etc1s" {
+		params = append(params, "--encode", "etc1s")
+		params = append(params, "--clevel", "5")
+		params = append(params, "--qlevel", "255")
+	} else {
+		params = append(params, "--encode", "uastc")
+		params = append(params, "--uastc_quality", "5")
+		params = append(params, "--zcmp", "3")
+	}
+
+	if width%4 != 0 || height%4 != 0 {
+		width = width + (4-width%4)%4
+		height = height + (4-height%4)%4
+
+		params = append(params, "--resize", strconv.Itoa(width)+"x"+strconv.Itoa(height))
+	}
+
+	params = append(params, outputPath, inputPath)
+
+	return params
+}
+
+func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool) (image []byte, err error) {
 	var mimeType string = http.DetectContentType(buf)
 
 	var inputPath string = "/tmp/" + uuid.New().String()
@@ -66,23 +98,7 @@ func toKtx2Image(buf []byte) (image []byte, err error) {
 		return nil, err
 	}
 
-	var params []string = make([]string, 0)
-
-	params = append(params, "--genmipmap")
-	params = append(params, "--t2")
-	params = append(params, "--encode", "etc1s")
-	params = append(params, "--clevel", "1")
-	params = append(params, "--qlevel", "255")
-	params = append(params, "--assign_oetf", "linear")
-
-	if width%4 != 0 || height%4 != 0 {
-		width = width + (4-width%4)%4
-		height = height + (4-height%4)%4
-
-		params = append(params, "--resize", strconv.Itoa(width)+"x"+strconv.Itoa(height))
-	}
-
-	params = append(params, outputPath, inputPath)
+	var params []string = getKtx2Params(ktx2Mode, width, height, inputPath, outputPath, isSRGB)
 
 	err = exec.Command("toktx", params...).Run()
 	if err != nil {
@@ -146,11 +162,54 @@ func (g *GLB) ResizeTexture(width, height int) (err error) {
 	return nil
 }
 
-func (g *GLB) ToKtx2Texture() (err error) {
+// estimate whether the texture should be sRGB or not from the texture slot
+// should sRGB: baseColorTexture, emissiveTexture
+// should linear: normalTexture, occlusionTexture, metallicRoughnessTexture
+func getIsSrgbMap(gltfDocument gltf.Document) map[uint32]bool {
+	isSRGBs := make(map[uint32]bool)
+
+	// golang return zero-value for non-exist key
+	// so, we just need to set true for sRGB texture
+	for _, material := range gltfDocument.Materials {
+		if material.PBRMetallicRoughness != nil && material.PBRMetallicRoughness.BaseColorTexture != nil {
+			isSRGBs[uint32(material.PBRMetallicRoughness.BaseColorTexture.Index)] = true
+		}
+		if material.EmissiveTexture != nil {
+			isSRGBs[uint32(material.EmissiveTexture.Index)] = true
+		}
+	}
+
+	return isSRGBs
+}
+
+func getBufferViewIndex2TextureIndex(gltfDocument gltf.Document) map[uint32][]uint32 {
+	imageToBufferView := make(map[uint32]uint32)
+
+	for imageIndex, image := range gltfDocument.Images {
+		if image.BufferView != nil {
+			imageToBufferView[uint32(imageIndex)] = *image.BufferView
+		}
+	}
+
+	bufferViewToTextures := make(map[uint32][]uint32)
+	for textureIndex, texture := range gltfDocument.Textures {
+		imageIndex := texture.Source
+		if bufferViewIndex, exists := imageToBufferView[*imageIndex]; exists {
+			bufferViewToTextures[uint32(bufferViewIndex)] = append(bufferViewToTextures[uint32(bufferViewIndex)], uint32(textureIndex))
+		}
+	}
+
+	return bufferViewToTextures
+}
+
+func (g *GLB) ToKtx2Texture(ktx2Mode string) (err error) {
 	var jsonDocument gltf.Document = g.GltfDocument
 	var bin []byte = g.BIN
 
 	imagesBufferViews := make([]uint32, 0)
+
+	isSRGBs := getIsSrgbMap(jsonDocument)
+	bufferViewToTexture := getBufferViewIndex2TextureIndex(jsonDocument)
 
 	for _, image := range jsonDocument.Images {
 		imagesBufferViews = append(imagesBufferViews, *image.BufferView)
@@ -169,7 +228,24 @@ func (g *GLB) ToKtx2Texture() (err error) {
 		data := bin[byteOffset : byteOffset+bufferView.ByteLength]
 
 		if slices.Contains(imagesBufferViews, uint32(idx)) {
-			img, err := toKtx2Image(data)
+			isSRGB := false
+
+			fmt.Println("--------------------")
+			if textures, exists := bufferViewToTexture[uint32(idx)]; exists {
+				for _, textureIndex := range textures {
+					if isSRGBs[textureIndex] {
+						fmt.Println("printf debug start")
+						fmt.Println("textureIndex:", textureIndex)
+						fmt.Println("srgb:", jsonDocument.Textures[textureIndex].Name)
+						fmt.Println("printf debug end")
+						isSRGB = true
+					}
+				}
+			}
+			fmt.Println("isSRGB", isSRGB)
+			fmt.Println("--------------------")
+
+			img, err := toKtx2Image(ktx2Mode, data, isSRGB)
 			if err != nil {
 				return err
 			}

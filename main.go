@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/qmuntal/gltf"
 	"github.com/urth-inc/vrm-transform/pkg/glb"
 	"github.com/urth-inc/vrm-transform/pkg/vrm"
@@ -41,17 +42,17 @@ func main() {
 		return
 	}
 
-	jsonDump(myglb, "before.json")
-	err = myglb.ResizeTexture(1024, 1024)
-	if err != nil {
-		fmt.Println("File read error:", err)
-	}
+	// err = myglb.ResizeTexture(1024, 1024)
+	// if err != nil {
+	// 	fmt.Println("File read error:", err)
+	// }
 
-	err = myglb.ToKtx2Texture()
+	// err = myglb.ToKtx2Texture("uastc")
+	err = myglb.ToKtx2Texture("etc1s")
+
 	if err != nil {
 		fmt.Println("File read error:", err)
 	}
-	jsonDump(myglb, "after.json")
 
 	buf, err := glb.WriteBinary(myglb)
 	if err != nil {

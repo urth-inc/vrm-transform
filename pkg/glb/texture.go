@@ -35,6 +35,7 @@ func resizeImage(buf []byte, width, height int) (image []byte, err error) {
 
 	return image, nil
 }
+
 func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, outputPath string, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) []string {
 	if etc1sQuality < 1 || etc1sQuality > 255 {
 		etc1sQuality = 128
@@ -78,7 +79,7 @@ func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, out
 	return params
 }
 
-func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool) (image []byte, err error) {
+func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
 	var mimeType string = http.DetectContentType(buf)
 
 	var inputPath string = "/tmp/" + uuid.New().String()
@@ -107,10 +108,6 @@ func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool) (image []byte, err er
 	if err != nil {
 		return nil, err
 	}
-
-	var etc1sQuality int = 128
-	var uastcQuality int = 2
-	var zstdLevel int = 3
 
 	var params []string = getKtx2Params(ktx2Mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 
@@ -221,7 +218,7 @@ func getBufferViewIndex2TextureIndex(gltfDocument gltf.Document) map[uint32][]ui
 	return bufferViewToTextures
 }
 
-func (g *GLB) ToKtx2Texture(ktx2Mode string) (err error) {
+func (g *GLB) ToKtx2Texture(ktx2Mode string, etc1sQuality int, uastcQuality int, zstdLevel int) (err error) {
 	var jsonDocument gltf.Document = g.GltfDocument
 	var bin []byte = g.BIN
 
@@ -258,7 +255,7 @@ func (g *GLB) ToKtx2Texture(ktx2Mode string) (err error) {
 			// 	}
 			// }
 
-			img, err := toKtx2Image(ktx2Mode, data, isSRGB)
+			img, err := toKtx2Image(ktx2Mode, data, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 			if err != nil {
 				return err
 			}

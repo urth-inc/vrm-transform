@@ -27,7 +27,6 @@ func main() {
 	}
 	defer file.Close()
 
-	// ファイルの内容を[]byteに読み込む
 	fileData, err := ioutil.ReadAll(file)
 	if err != nil {
 		fmt.Println("File read error:", err)
@@ -47,8 +46,8 @@ func main() {
 	// 	fmt.Println("File read error:", err)
 	// }
 
-	// err = myglb.ToKtx2Texture("uastc")
-	err = myglb.ToKtx2Texture("etc1s")
+	err = myglb.ToKtx2Texture("uastc", -1, 2, 3)
+	// err = myglb.ToKtx2Texture("etc1s", 128, -1, -1)
 
 	if err != nil {
 		fmt.Println("File read error:", err)
@@ -61,7 +60,6 @@ func main() {
 	}
 
 	filePath = "output.glb"
-	// filePath = "avatar.vrm"
 	file, err = os.Create(filePath)
 	if err != nil {
 		fmt.Println("File create error:", err)

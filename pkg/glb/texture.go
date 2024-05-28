@@ -168,15 +168,20 @@ func (g *GLB) ResizeTexture(width, height int) (err error) {
 func getIsSrgbMap(gltfDocument gltf.Document) map[uint32]bool {
 	isSRGBs := make(map[uint32]bool)
 
-	// golang return zero-value for non-exist key
-	// so, we just need to set true for sRGB texture
+	// Helper function to add texture indices to the map
+	addToMap := func(texture *gltf.TextureInfo) {
+		if texture != nil {
+			isSRGBs[uint32(texture.Index)] = true
+		}
+	}
+
+	// Golang return zero-value for non-exist key
+	// We just need to set true for sRGB texture
 	for _, material := range gltfDocument.Materials {
-		if material.PBRMetallicRoughness != nil && material.PBRMetallicRoughness.BaseColorTexture != nil {
-			isSRGBs[uint32(material.PBRMetallicRoughness.BaseColorTexture.Index)] = true
+		if material.PBRMetallicRoughness != nil {
+			addToMap(material.PBRMetallicRoughness.BaseColorTexture)
 		}
-		if material.EmissiveTexture != nil {
-			isSRGBs[uint32(material.EmissiveTexture.Index)] = true
-		}
+		addToMap(material.EmissiveTexture)
 	}
 
 	return isSRGBs

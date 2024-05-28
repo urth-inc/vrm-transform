@@ -227,8 +227,8 @@ func (g *GLB) ToKtx2Texture(ktx2Mode string) (err error) {
 
 	imagesBufferViews := make([]uint32, 0)
 
-	isSRGBs := getIsSrgbMap(jsonDocument)
-	bufferViewToTexture := getBufferViewIndex2TextureIndex(jsonDocument)
+	// isSRGBs := getIsSrgbMap(jsonDocument)
+	// bufferViewToTexture := getBufferViewIndex2TextureIndex(jsonDocument)
 
 	for _, image := range jsonDocument.Images {
 		imagesBufferViews = append(imagesBufferViews, *image.BufferView)
@@ -249,20 +249,14 @@ func (g *GLB) ToKtx2Texture(ktx2Mode string) (err error) {
 		if slices.Contains(imagesBufferViews, uint32(idx)) {
 			isSRGB := false
 
-			fmt.Println("--------------------")
-			if textures, exists := bufferViewToTexture[uint32(idx)]; exists {
-				for _, textureIndex := range textures {
-					if isSRGBs[textureIndex] {
-						fmt.Println("printf debug start")
-						fmt.Println("textureIndex:", textureIndex)
-						fmt.Println("srgb:", jsonDocument.Textures[textureIndex].Name)
-						fmt.Println("printf debug end")
-						isSRGB = true
-					}
-				}
-			}
-			fmt.Println("isSRGB", isSRGB)
-			fmt.Println("--------------------")
+			// some models lie about the texture slot, so we need to comment out this part and always treat as non sRGB
+			// if textures, exists := bufferViewToTexture[uint32(idx)]; exists {
+			// 	for _, textureIndex := range textures {
+			// 		if isSRGBs[textureIndex] {
+			// 			isSRGB = true
+			// 		}
+			// 	}
+			// }
 
 			img, err := toKtx2Image(ktx2Mode, data, isSRGB)
 			if err != nil {

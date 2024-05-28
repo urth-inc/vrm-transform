@@ -35,10 +35,20 @@ func resizeImage(buf []byte, width, height int) (image []byte, err error) {
 
 	return image, nil
 }
+func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, outputPath string, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) []string {
+	if etc1sQuality < 1 || etc1sQuality > 255 {
+		etc1sQuality = 128
+	}
+	if uastcQuality < 0 || uastcQuality > 4 {
+		uastcQuality = 2
+	}
+	if zstdLevel < 1 || zstdLevel > 22 {
+		zstdLevel = 3
+	}
 
-func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, outputPath string, isSRGB bool) []string {
 	var params []string = make([]string, 0)
 
+	// ref: https://github.khronos.org/KTX-Software/ktxtools/toktx.html
 	params = append(params, "--genmipmap")
 	params = append(params, "--t2")
 
@@ -46,20 +56,20 @@ func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, out
 		params = append(params, "--assign_oetf", "linear", "--assign_primaries", "none")
 	}
 
-	if ktx2Mode == "etc1s" {
+	switch ktx2Mode {
+	case "etc1s":
 		params = append(params, "--encode", "etc1s")
-		params = append(params, "--clevel", "5")
-		params = append(params, "--qlevel", "255")
-	} else {
+		params = append(params, "--clevel", "1")
+		params = append(params, "--qlevel", strconv.Itoa(etc1sQuality))
+	default:
 		params = append(params, "--encode", "uastc")
-		params = append(params, "--uastc_quality", "5")
-		params = append(params, "--zcmp", "3")
+		params = append(params, "--uastc_quality", strconv.Itoa(uastcQuality))
+		params = append(params, "--zcmp", strconv.Itoa(zstdLevel))
 	}
 
 	if width%4 != 0 || height%4 != 0 {
-		width = width + (4-width%4)%4
-		height = height + (4-height%4)%4
-
+		width += (4 - width%4) % 4
+		height += (4 - height%4) % 4
 		params = append(params, "--resize", strconv.Itoa(width)+"x"+strconv.Itoa(height))
 	}
 
@@ -98,7 +108,11 @@ func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool) (image []byte, err er
 		return nil, err
 	}
 
-	var params []string = getKtx2Params(ktx2Mode, width, height, inputPath, outputPath, isSRGB)
+	var etc1sQuality int = 128
+	var uastcQuality int = 2
+	var zstdLevel int = 3
+
+	var params []string = getKtx2Params(ktx2Mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 
 	err = exec.Command("toktx", params...).Run()
 	if err != nil {

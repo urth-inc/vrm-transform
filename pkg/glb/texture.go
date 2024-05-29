@@ -17,6 +17,17 @@ import (
 	"github.com/urth-inc/vrm-transform/internal/imageUtil"
 )
 
+type Ktx2ConversionDependenciesInterface interface {
+	UUIDGenerator() string
+	ContentTypeDetector(data []byte) string
+	ImageSizer(data []byte) (int, int, error)
+	CommandExecutor(name string, args ...string) error
+	ParamsGenerator(mode string, width, height int, inputPath, outputPath string, isSRGB bool, etc1sQuality, uastcQuality, zstdLevel int) []string
+	FileReader(filePath string) ([]byte, error)
+	FileCreator(filePath string) (*os.File, error)
+	FileRemover(filePath string) error
+}
+
 func resizeImage(buf []byte, width, height int) (image []byte, err error) {
 	newImage := bimg.NewImage(buf)
 

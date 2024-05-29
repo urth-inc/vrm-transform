@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/qmuntal/gltf"
 	"github.com/urth-inc/vrm-transform/pkg/glb"
 	"github.com/urth-inc/vrm-transform/pkg/vrm"
@@ -26,7 +27,6 @@ func main() {
 	}
 	defer file.Close()
 
-	// ファイルの内容を[]byteに読み込む
 	fileData, err := ioutil.ReadAll(file)
 	if err != nil {
 		fmt.Println("File read error:", err)
@@ -41,17 +41,17 @@ func main() {
 		return
 	}
 
-	jsonDump(myglb, "before.json")
-	err = myglb.ResizeTexture(1024, 1024)
-	if err != nil {
-		fmt.Println("File read error:", err)
-	}
+	// err = myglb.ResizeTexture(1024, 1024)
+	// if err != nil {
+	// 	fmt.Println("File read error:", err)
+	// }
 
-	err = myglb.ToKtx2Texture()
+	err = myglb.ToKtx2Texture("uastc", -1, 2, 3)
+	// err = myglb.ToKtx2Texture("etc1s", 128, -1, -1)
+
 	if err != nil {
 		fmt.Println("File read error:", err)
 	}
-	jsonDump(myglb, "after.json")
 
 	buf, err := glb.WriteBinary(myglb)
 	if err != nil {
@@ -60,7 +60,6 @@ func main() {
 	}
 
 	filePath = "output.glb"
-	// filePath = "avatar.vrm"
 	file, err = os.Create(filePath)
 	if err != nil {
 		fmt.Println("File create error:", err)

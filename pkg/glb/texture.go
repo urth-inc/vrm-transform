@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/h2non/bimg"
 	"github.com/qmuntal/gltf"
+
 	"github.com/urth-inc/vrm-transform/internal/fileUtil"
 	"github.com/urth-inc/vrm-transform/internal/imageUtil"
 )
@@ -79,11 +80,22 @@ func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, out
 	return params
 }
 
-func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
-	var mimeType string = http.DetectContentType(buf)
+type Ktx2ConversionDependencies struct {
+	UUIDGenerator       func() string
+	ContentTypeDetector func(data []byte) string
+	ImageSizer          func(data []byte) (int, int, error)
+	CommandExecutor     func(name string, args ...string) error
+	ParamsGenerator     func(mode string, width, height int, inputPath, outputPath string, isSRGB bool, etc1sQuality, uastcQuality, zstdLevel int) []string
+	FileReader          func(filePath string) ([]byte, error)
+	FileCreator         func(filePath string) (*os.File, error)
+	FileRemover         func(filePath string) error
+}
 
-	var inputPath string = "/tmp/" + uuid.New().String()
-	var outputPath string = "/tmp/" + uuid.New().String()
+func toKtx2Image(deps Ktx2ConversionDependencies, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
+	var mimeType string = deps.ContentTypeDetector(buf)
+	var inputPath string = "/tmp/" + deps.UUIDGenerator()
+	var outputPath string = "/tmp/" + deps.UUIDGenerator()
+
 	if mimeType == "image/png" {
 		inputPath += ".png"
 	} else if mimeType == "image/jpeg" {
@@ -92,7 +104,7 @@ func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uas
 		return nil, fmt.Errorf("invalid image type: %s", mimeType)
 	}
 
-	file, err := os.Create(inputPath)
+	file, err := deps.FileCreator(inputPath)
 	if err != nil {
 		return nil, err
 	}
@@ -103,28 +115,29 @@ func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uas
 		return nil, err
 	}
 
-	var width, height int
-	width, height, err = imageUtil.GetImageSize(buf)
+	width, height, err := deps.ImageSizer(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	var params []string = getKtx2Params(ktx2Mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
-
-	err = exec.Command("toktx", params...).Run()
+	params := deps.ParamsGenerator(ktx2Mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+	err = deps.CommandExecutor("toktx", params...)
 	if err != nil {
 		return nil, err
 	}
 
 	outputPath += ".ktx2"
-
-	ktx2file, err := fileUtil.ReadFile(outputPath)
+	ktx2file, err := deps.FileReader(outputPath)
 	if err != nil {
 		return nil, err
 	}
 
-	os.Remove(inputPath)
-	os.Remove(outputPath)
+	if err = deps.FileRemover(inputPath); err != nil {
+		return nil, err
+	}
+	if err = deps.FileRemover(outputPath); err != nil {
+		return nil, err
+	}
 
 	return ktx2file, nil
 }
@@ -255,7 +268,35 @@ func (g *GLB) ToKtx2Texture(ktx2Mode string, etc1sQuality int, uastcQuality int,
 			// 	}
 			// }
 
-			img, err := toKtx2Image(ktx2Mode, data, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+			toKtx2ImageDeps := Ktx2ConversionDependencies{
+				UUIDGenerator: func() string {
+					return uuid.New().String()
+				},
+				ContentTypeDetector: func(data []byte) string {
+					return http.DetectContentType(data)
+				},
+				ImageSizer: func(data []byte) (int, int, error) {
+					return imageUtil.GetImageSize(data)
+				},
+				CommandExecutor: func(name string, args ...string) error {
+					cmd := exec.Command(name, args...)
+					return cmd.Run()
+				},
+				ParamsGenerator: func(mode string, width, height int, inputPath, outputPath string, isSRGB bool, etc1sQuality, uastcQuality, zstdLevel int) []string {
+					return getKtx2Params(mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+				},
+				FileReader: func(filePath string) ([]byte, error) {
+					return fileUtil.ReadFile(filePath)
+				},
+				FileCreator: func(filePath string) (*os.File, error) {
+					return os.Create(filePath)
+				},
+				FileRemover: func(filePath string) error {
+					return os.Remove(filePath)
+				},
+			}
+
+			img, err := toKtx2Image(toKtx2ImageDeps, ktx2Mode, data, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 			if err != nil {
 				return err
 			}

@@ -16,6 +16,14 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Install dependencies
+        run: |
+          sudo apt update -y
+          sudo apt install -y libvips-dev wget
+          wget https://github.com/KhronosGroup/KTX-Software/releases/download/v4.2.1/KTX-Software-4.2.1-Linux-x86_64.deb
+          sudo dpkg -i KTX-Software-4.2.1-Linux-x86_64.deb
+          rm KTX-Software-4.2.1-Linux-x86_64.deb
+
       - name: Download Go modules
         run: go mod download
 

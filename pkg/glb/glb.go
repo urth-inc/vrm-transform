@@ -28,11 +28,6 @@ type GLB struct {
 	BIN []byte
 }
 
-type GLB struct {
-	GltfDocument gltf.Document
-	BIN          []byte
-}
-
 func isGLB(view []byte) bool {
 	var magic uint32 = binary.LittleEndian.Uint32(view[:4])
 	var version uint32 = binary.LittleEndian.Uint32(view[4:8])

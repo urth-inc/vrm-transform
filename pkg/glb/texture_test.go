@@ -1,7 +1,12 @@
 package glb
 
 import (
+	"bytes"
 	"testing"
+
+	mock_glb "github.com/urth-inc/vrm-transform/test/mocks"
+
+	"go.uber.org/mock/gomock"
 )
 
 func TestGetKtx2Params(t *testing.T) {
@@ -58,5 +63,46 @@ func TestGetKtx2Params(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestToKtx2Image(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFile := mock_glb.NewMockFile(ctrl)
+	mockFile.EXPECT().Write(gomock.Any()).Return(0, nil)
+	mockFile.EXPECT().Close().Return(nil)
+
+	mockDeps := mock_glb.NewMockKtx2ConversionDependenciesInterface(ctrl)
+
+	// Test data
+	testData := []byte("test image data")
+	uuid := "unique-id"
+	inputPath := "/tmp/" + uuid + ".png"
+	outputPath := "/tmp/" + uuid
+	mode := "UASTC"
+	isSRGB := false
+	etc1sQuality, uastcQuality, zstdLevel := 128, 3, 4
+	width, height := 1024, 1024
+
+	mockDeps.EXPECT().ContentTypeDetector(testData).Return("image/png")
+	mockDeps.EXPECT().UUIDGenerator().Return(uuid).Times(2)
+	mockDeps.EXPECT().FileCreator(inputPath).Return(mockFile, nil)
+	mockDeps.EXPECT().ImageSizer(testData).Return(width, height, nil)
+	mockDeps.EXPECT().ParamsGenerator(mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel).Return([]string{"toktx", "--t2", outputPath, inputPath})
+	mockDeps.EXPECT().CommandExecutor("toktx", gomock.Any()).Return(nil)
+	mockDeps.EXPECT().FileReader(outputPath+".ktx2").Return([]byte("ktx2 image data"), nil)
+	mockDeps.EXPECT().FileRemover(inputPath).Return(nil)
+	mockDeps.EXPECT().FileRemover(outputPath + ".ktx2").Return(nil)
+
+	result, err := toKtx2Image(mockDeps, mode, testData, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	expectedResult := []byte("ktx2 image data")
+	if !bytes.Equal(result, expectedResult) {
+		t.Errorf("Expected result %v, got %v", expectedResult, result)
 	}
 }

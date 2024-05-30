@@ -10,11 +10,63 @@
 package mock_glb
 
 import (
-	os "os"
 	reflect "reflect"
 
+	fileUtil "github.com/urth-inc/vrm-transform/internal/fileUtil"
 	gomock "go.uber.org/mock/gomock"
 )
+
+// MockFile is a mock of File interface.
+type MockFile struct {
+	ctrl     *gomock.Controller
+	recorder *MockFileMockRecorder
+}
+
+// MockFileMockRecorder is the mock recorder for MockFile.
+type MockFileMockRecorder struct {
+	mock *MockFile
+}
+
+// NewMockFile creates a new mock instance.
+func NewMockFile(ctrl *gomock.Controller) *MockFile {
+	mock := &MockFile{ctrl: ctrl}
+	mock.recorder = &MockFileMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockFile) EXPECT() *MockFileMockRecorder {
+	return m.recorder
+}
+
+// Close mocks base method.
+func (m *MockFile) Close() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockFileMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockFile)(nil).Close))
+}
+
+// Write mocks base method.
+func (m *MockFile) Write(p []byte) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Write", p)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Write indicates an expected call of Write.
+func (mr *MockFileMockRecorder) Write(p any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockFile)(nil).Write), p)
+}
 
 // MockKtx2ConversionDependenciesInterface is a mock of Ktx2ConversionDependenciesInterface interface.
 type MockKtx2ConversionDependenciesInterface struct {
@@ -73,10 +125,10 @@ func (mr *MockKtx2ConversionDependenciesInterfaceMockRecorder) ContentTypeDetect
 }
 
 // FileCreator mocks base method.
-func (m *MockKtx2ConversionDependenciesInterface) FileCreator(filePath string) (*os.File, error) {
+func (m *MockKtx2ConversionDependenciesInterface) FileCreator(filePath string) (fileUtil.File, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FileCreator", filePath)
-	ret0, _ := ret[0].(*os.File)
+	ret0, _ := ret[0].(fileUtil.File)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

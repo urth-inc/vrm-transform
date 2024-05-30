@@ -15,9 +15,17 @@ const (
 	GLB_MAGIC         = 0x46546C67
 )
 
+// GLB represents a GLTF 2.0 Binary File Format structure.
+// This format encapsulates both the JSON description of a GLTF scene and its associated binary data
+// in a single binary blob.
 type GLB struct {
+	// GltfDocument represents the parsed document of the JSON part of the GLTF file.
+	// This field contains information about the scene's structure, asset metadata, animations, materials, etc.
 	GltfDocument gltf.Document
-	BIN          []byte
+
+	// BIN is a byte slice that stores the binary portion of the GLTF file.
+	// It includes the binary format asset data such as mesh vertex data and textures.
+	BIN []byte
 }
 
 func isGLB(view []byte) bool {

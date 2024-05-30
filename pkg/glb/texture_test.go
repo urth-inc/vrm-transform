@@ -1,119 +1,20 @@
 package glb
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	mock_glb "github.com/urth-inc/vrm-transform/test/mocks"
+
+	"go.uber.org/mock/gomock"
 )
 
-func TestToKtx2Image(t *testing.T) {
-	file, err := os.Open("../../test/Duck_baseColorTexture.png")
-
-	if err != nil {
-		t.Errorf("Open file error: %v", err)
-	}
-
-	defer file.Close()
-
-	buf, err := ioutil.ReadAll(file)
-	if err != nil {
-		t.Errorf("Read file error: %v", err)
-	}
-
-	etc1sFile, err := toKtx2Image("etc1s", buf, false, 128, -1, -1)
-
-	if err != nil {
-		t.Errorf("toKtx2Image error: %v", err)
-	}
-
-	if etc1sFile == nil {
-		t.Errorf("toKtx2Image error: ktx2file is nil")
-	}
-
-	uastcFile, err := toKtx2Image("uastc", buf, false, -1, 2, 3)
-	if err != nil {
-		t.Errorf("toKtx2Image error: %v", err)
-	}
-
-	if uastcFile == nil {
-		t.Errorf("toKtx2Image error: ktx2file is nil")
-	}
-}
-
-func prepareGLB(filePath string) (*GLB, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("File open error: %v", err)
-	}
-	defer file.Close()
-
-	buf, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("File read error: %v", err)
-	}
-
-	glb, err := ReadBinary(buf)
-	if err != nil {
-		return nil, fmt.Errorf("GLB read error: %v", err)
-	}
-
-	return &glb, nil
-}
-
-func TestToKtx2TextureUASTC(t *testing.T) {
-	glb, err := prepareGLB("../../test/Duck.glb")
-
-	if err != nil {
-		fmt.Println("Glb read error:", err)
-		return
-	}
-
-	err = glb.ToKtx2Texture("uastc", -1, 2, 3)
-
-	if err != nil {
-		fmt.Println("ToKtx2Texture error:", err)
-	}
-
-	res, err := WriteBinary(*glb)
-	if err != nil {
-		fmt.Println("Glb write error:", err)
-		return
-	}
-
-	if res == nil {
-		fmt.Println("Glb write error: res is nil")
-		return
-	}
-}
-
-func TestToKtx2TextureETC1S(t *testing.T) {
-	glb, err := prepareGLB("../../test/Duck.glb")
-
-	if err != nil {
-		fmt.Println("Glb read error:", err)
-		return
-	}
-
-	err = glb.ToKtx2Texture("etc1s", 128, -1, -1)
-
-	if err != nil {
-		fmt.Println("ToKtx2Texture error:", err)
-	}
-
-	res, err := WriteBinary(*glb)
-	if err != nil {
-		fmt.Println("Glb write error:", err)
-		return
-	}
-
-	if res == nil {
-		fmt.Println("Glb write error: res is nil")
-		return
-	}
-}
-
 func TestGetKtx2Params(t *testing.T) {
+	// TODO: add other test cases
 	cases := []struct {
 		name           string
 		ktx2Mode       string
@@ -168,4 +69,89 @@ func TestGetKtx2Params(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestConvertToKtx2Image tests the convertToKtx2Image utility function
+func TestToKtx2Image(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFile := mock_glb.NewMockFile(ctrl)
+	mockFile.EXPECT().Write(gomock.Any()).Return(0, nil)
+	mockFile.EXPECT().Close().Return(nil)
+
+	mockDeps := mock_glb.NewMockConvertToKtx2ImageDependenciesInterface(ctrl)
+
+	// TODO: add other test cases
+	// Test data
+	testData := []byte("test image data")
+	uuid := "unique-id"
+	inputPath := "/tmp/" + uuid + ".png"
+	outputPath := "/tmp/" + uuid
+	mode := "UASTC"
+	isSRGB := false
+	etc1sQuality, uastcQuality, zstdLevel := 128, 3, 4
+	width, height := 1024, 1024
+
+	mockDeps.EXPECT().ContentTypeDetector(testData).Return("image/png")
+	mockDeps.EXPECT().UUIDGenerator().Return(uuid).Times(2)
+	mockDeps.EXPECT().FileCreator(inputPath).Return(mockFile, nil)
+	mockDeps.EXPECT().ImageSizer(testData).Return(width, height, nil)
+	mockDeps.EXPECT().ParamsGenerator(mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel).Return([]string{"toktx", "--t2", outputPath, inputPath})
+	mockDeps.EXPECT().CommandExecutor("toktx", gomock.Any()).Return(nil)
+	mockDeps.EXPECT().FileReader(outputPath+".ktx2").Return([]byte("ktx2 image data"), nil)
+	mockDeps.EXPECT().FileRemover(inputPath).Return(nil)
+	mockDeps.EXPECT().FileRemover(outputPath + ".ktx2").Return(nil)
+
+	result, err := convertToKtx2Image(mockDeps, mode, testData, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	expectedResult := []byte("ktx2 image data")
+	if !bytes.Equal(result, expectedResult) {
+		t.Errorf("Expected result %v, got %v", expectedResult, result)
+	}
+}
+
+// TestToKtx2Texture tests the ToKtx2Texture method of GLB
+func TestToKtx2Texture(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockDeps := mock_glb.NewMockConvertToKtx2TextureDependenciesInterface(ctrl)
+
+	// TODO: add other test cases
+	// TODO: remove external dependency on test
+	file, err := os.Open("../../test/Duck.glb")
+	if err != nil {
+		fmt.Println("File open error:", err)
+		return
+	}
+	defer file.Close()
+
+	fileData, err := ioutil.ReadAll(file)
+	if err != nil {
+		fmt.Println("File read error:", err)
+		return
+	}
+
+	test_glb, err := ReadBinary(fileData)
+	if err != nil {
+		fmt.Println("File read error:", err)
+		return
+	}
+
+	// Set up expectations for the mock object
+	mockDeps.EXPECT().
+		ConvertToKtx2Image(gomock.Any(), "uastc", gomock.Any(), false, -1, 2, 3).
+		Return([]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19}, nil).
+		Times(1)
+
+	// Execute the method under test
+	err = test_glb.ToKtx2Texture(mockDeps, "uastc", -1, 2, 3)
+
+	// Assert that there was no error and the expected changes were made
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(0x18ea2), test_glb.GltfDocument.Buffers[0].ByteLength)
 }

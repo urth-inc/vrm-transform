@@ -14,7 +14,49 @@ import (
 	"github.com/qmuntal/gltf"
 	"github.com/urth-inc/vrm-transform/internal/fileUtil"
 	"github.com/urth-inc/vrm-transform/internal/imageUtil"
+	"github.com/urth-inc/vrm-transform/internal/interfaces"
 )
+
+type DefaultConvertToKtx2ImageDependencies struct{}
+
+func (d *DefaultConvertToKtx2ImageDependencies) UUIDGenerator() string {
+	return uuid.New().String()
+}
+
+func (d *DefaultConvertToKtx2ImageDependencies) ContentTypeDetector(data []byte) string {
+	return http.DetectContentType(data)
+}
+
+func (d *DefaultConvertToKtx2ImageDependencies) ImageSizer(data []byte) (int, int, error) {
+	return imageUtil.GetImageSize(data)
+}
+
+func (d *DefaultConvertToKtx2ImageDependencies) CommandExecutor(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	return cmd.Run()
+}
+
+func (d *DefaultConvertToKtx2ImageDependencies) ParamsGenerator(mode string, width, height int, inputPath, outputPath string, isSRGB bool, etc1sQuality, uastcQuality, zstdLevel int) []string {
+	return getKtx2Params(mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+}
+
+func (d *DefaultConvertToKtx2ImageDependencies) FileReader(filePath string) ([]byte, error) {
+	return fileUtil.ReadFile(filePath)
+}
+
+func (d *DefaultConvertToKtx2ImageDependencies) FileCreator(filePath string) (interfaces.File, error) {
+	return os.Create(filePath)
+}
+
+func (d *DefaultConvertToKtx2ImageDependencies) FileRemover(filePath string) error {
+	return os.Remove(filePath)
+}
+
+type DefaultConvertToKtx2TextureDependencies struct{}
+
+func (d *DefaultConvertToKtx2TextureDependencies) ConvertToKtx2Image(deps interfaces.ConvertToKtx2ImageDependenciesInterface, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) ([]byte, error) {
+	return convertToKtx2Image(deps, ktx2Mode, buf, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+}
 
 func resizeImage(buf []byte, width, height int) (image []byte, err error) {
 	newImage := bimg.NewImage(buf)
@@ -79,11 +121,11 @@ func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, out
 	return params
 }
 
-func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
-	var mimeType string = http.DetectContentType(buf)
+func convertToKtx2Image(deps interfaces.ConvertToKtx2ImageDependenciesInterface, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
+	var mimeType string = deps.ContentTypeDetector(buf)
+	var inputPath string = "/tmp/" + deps.UUIDGenerator()
+	var outputPath string = "/tmp/" + deps.UUIDGenerator()
 
-	var inputPath string = "/tmp/" + uuid.New().String()
-	var outputPath string = "/tmp/" + uuid.New().String()
 	if mimeType == "image/png" {
 		inputPath += ".png"
 	} else if mimeType == "image/jpeg" {
@@ -92,7 +134,7 @@ func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uas
 		return nil, fmt.Errorf("invalid image type: %s", mimeType)
 	}
 
-	file, err := os.Create(inputPath)
+	file, err := deps.FileCreator(inputPath)
 	if err != nil {
 		return nil, err
 	}
@@ -103,28 +145,31 @@ func toKtx2Image(ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uas
 		return nil, err
 	}
 
-	var width, height int
-	width, height, err = imageUtil.GetImageSize(buf)
+	width, height, err := deps.ImageSizer(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	var params []string = getKtx2Params(ktx2Mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
-
-	err = exec.Command("toktx", params...).Run()
+	params := deps.ParamsGenerator(ktx2Mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+	err = deps.CommandExecutor("toktx", params...)
 	if err != nil {
 		return nil, err
 	}
 
+	// toktx add .ktx2 extension automatically
 	outputPath += ".ktx2"
 
-	ktx2file, err := fileUtil.ReadFile(outputPath)
+	ktx2file, err := deps.FileReader(outputPath)
 	if err != nil {
 		return nil, err
 	}
 
-	os.Remove(inputPath)
-	os.Remove(outputPath)
+	if err = deps.FileRemover(inputPath); err != nil {
+		return nil, err
+	}
+	if err = deps.FileRemover(outputPath); err != nil {
+		return nil, err
+	}
 
 	return ktx2file, nil
 }
@@ -173,59 +218,11 @@ func (g *GLB) ResizeTexture(width, height int) (err error) {
 	return nil
 }
 
-// estimate whether the texture should be sRGB or not from the texture slot
-// should sRGB: baseColorTexture, emissiveTexture
-// should linear: normalTexture, occlusionTexture, metallicRoughnessTexture
-func getIsSrgbMap(gltfDocument gltf.Document) map[uint32]bool {
-	isSRGBs := make(map[uint32]bool)
-
-	// Helper function to add texture indices to the map
-	addToMap := func(texture *gltf.TextureInfo) {
-		if texture != nil {
-			isSRGBs[uint32(texture.Index)] = true
-		}
-	}
-
-	// Golang return zero-value for non-exist key
-	// We just need to set true for sRGB texture
-	for _, material := range gltfDocument.Materials {
-		if material.PBRMetallicRoughness != nil {
-			addToMap(material.PBRMetallicRoughness.BaseColorTexture)
-		}
-		addToMap(material.EmissiveTexture)
-	}
-
-	return isSRGBs
-}
-
-func getBufferViewIndex2TextureIndex(gltfDocument gltf.Document) map[uint32][]uint32 {
-	imageToBufferView := make(map[uint32]uint32)
-
-	for imageIndex, image := range gltfDocument.Images {
-		if image.BufferView != nil {
-			imageToBufferView[uint32(imageIndex)] = *image.BufferView
-		}
-	}
-
-	bufferViewToTextures := make(map[uint32][]uint32)
-	for textureIndex, texture := range gltfDocument.Textures {
-		imageIndex := texture.Source
-		if bufferViewIndex, exists := imageToBufferView[*imageIndex]; exists {
-			bufferViewToTextures[uint32(bufferViewIndex)] = append(bufferViewToTextures[uint32(bufferViewIndex)], uint32(textureIndex))
-		}
-	}
-
-	return bufferViewToTextures
-}
-
-func (g *GLB) ToKtx2Texture(ktx2Mode string, etc1sQuality int, uastcQuality int, zstdLevel int) (err error) {
+func (g *GLB) ToKtx2Texture(deps interfaces.ConvertToKtx2TextureDependenciesInterface, ktx2Mode string, etc1sQuality int, uastcQuality int, zstdLevel int) (err error) {
 	var jsonDocument gltf.Document = g.GltfDocument
 	var bin []byte = g.BIN
 
 	imagesBufferViews := make([]uint32, 0)
-
-	// isSRGBs := getIsSrgbMap(jsonDocument)
-	// bufferViewToTexture := getBufferViewIndex2TextureIndex(jsonDocument)
 
 	for _, image := range jsonDocument.Images {
 		imagesBufferViews = append(imagesBufferViews, *image.BufferView)
@@ -244,18 +241,11 @@ func (g *GLB) ToKtx2Texture(ktx2Mode string, etc1sQuality int, uastcQuality int,
 		data := bin[byteOffset : byteOffset+bufferView.ByteLength]
 
 		if slices.Contains(imagesBufferViews, uint32(idx)) {
+			// some models lie about the texture slot, so we always treat texture as non-color
 			isSRGB := false
 
-			// some models lie about the texture slot, so we need to comment out this part and always treat as non sRGB
-			// if textures, exists := bufferViewToTexture[uint32(idx)]; exists {
-			// 	for _, textureIndex := range textures {
-			// 		if isSRGBs[textureIndex] {
-			// 			isSRGB = true
-			// 		}
-			// 	}
-			// }
+			img, err := deps.ConvertToKtx2Image(&DefaultConvertToKtx2ImageDependencies{}, ktx2Mode, data, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 
-			img, err := toKtx2Image(ktx2Mode, data, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 			if err != nil {
 				return err
 			}

@@ -46,8 +46,8 @@ func main() {
 	// 	fmt.Println("File read error:", err)
 	// }
 
-	err = myglb.ToKtx2Texture("uastc", -1, 2, 3)
-	// err = myglb.ToKtx2Texture("etc1s", 128, -1, -1)
+	// err = myglb.ToKtx2Texture(&glb.DefaultConvertToKtx2TextureDependencies{}, "uastc", -1, 2, 3)
+	err = myglb.ToKtx2Texture(&glb.DefaultConvertToKtx2TextureDependencies{}, "etc1s", 128, -1, -1)
 
 	if err != nil {
 		fmt.Println("File read error:", err)

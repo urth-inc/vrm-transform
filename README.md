@@ -87,6 +87,15 @@ We recommend using the `glTF Report` to check your Model.
 
 - glTF Report: https://gltf.report/
 
+## Testing
+
+You can run the tests using the following command:
+
+```
+go test ./...
+```
+
 ## License
 
 This project is licensed under the MIT License.
+

@@ -2,8 +2,12 @@ package glb
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	mock_glb "github.com/urth-inc/vrm-transform/test/mocks"
 
 	"go.uber.org/mock/gomock"
@@ -67,6 +71,7 @@ func TestGetKtx2Params(t *testing.T) {
 	}
 }
 
+// TestConvertToKtx2Image tests the convertToKtx2Image utility function
 func TestToKtx2Image(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -107,4 +112,46 @@ func TestToKtx2Image(t *testing.T) {
 	if !bytes.Equal(result, expectedResult) {
 		t.Errorf("Expected result %v, got %v", expectedResult, result)
 	}
+}
+
+// TestToKtx2Texture tests the ToKtx2Texture method of GLB
+func TestToKtx2Texture(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockDeps := mock_glb.NewMockConvertToKtx2TextureDependenciesInterface(ctrl)
+
+	// TODO: add other test cases
+	// TODO: remove external dependency on test
+	file, err := os.Open("../../test/Duck.glb")
+	if err != nil {
+		fmt.Println("File open error:", err)
+		return
+	}
+	defer file.Close()
+
+	fileData, err := ioutil.ReadAll(file)
+	if err != nil {
+		fmt.Println("File read error:", err)
+		return
+	}
+
+	test_glb, err := ReadBinary(fileData)
+	if err != nil {
+		fmt.Println("File read error:", err)
+		return
+	}
+
+	// Set up expectations for the mock object
+	mockDeps.EXPECT().
+		ConvertToKtx2Image(gomock.Any(), "uastc", gomock.Any(), false, -1, 2, 3).
+		Return([]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19}, nil).
+		Times(1)
+
+	// Execute the method under test
+	err = test_glb.ToKtx2Texture(mockDeps, "uastc", -1, 2, 3)
+
+	// Assert that there was no error and the expected changes were made
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(0x18ea2), test_glb.GltfDocument.Buffers[0].ByteLength)
 }

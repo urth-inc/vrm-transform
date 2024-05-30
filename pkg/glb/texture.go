@@ -17,11 +17,6 @@ import (
 	"github.com/urth-inc/vrm-transform/internal/imageUtil"
 )
 
-type File interface {
-	Write(p []byte) (n int, err error)
-	Close() error
-}
-
 type Ktx2ConversionDependenciesInterface interface {
 	UUIDGenerator() string
 	ContentTypeDetector(data []byte) string
@@ -149,8 +144,6 @@ func toKtx2Image(deps Ktx2ConversionDependenciesInterface, ktx2Mode string, buf 
 		return nil, err
 	}
 	defer file.Close()
-
-	fmt.Println("file < ", file)
 
 	_, err = file.Write(buf)
 	if err != nil {

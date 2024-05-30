@@ -10,6 +10,7 @@ import (
 )
 
 func TestGetKtx2Params(t *testing.T) {
+	// TODO: add other test cases
 	cases := []struct {
 		name           string
 		ktx2Mode       string
@@ -76,6 +77,7 @@ func TestToKtx2Image(t *testing.T) {
 
 	mockDeps := mock_glb.NewMockConvertToKtx2ImageDependenciesInterface(ctrl)
 
+	// TODO: add other test cases
 	// Test data
 	testData := []byte("test image data")
 	uuid := "unique-id"

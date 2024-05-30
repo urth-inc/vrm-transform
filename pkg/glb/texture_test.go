@@ -74,7 +74,7 @@ func TestToKtx2Image(t *testing.T) {
 	mockFile.EXPECT().Write(gomock.Any()).Return(0, nil)
 	mockFile.EXPECT().Close().Return(nil)
 
-	mockDeps := mock_glb.NewMockKtx2ConversionDependenciesInterface(ctrl)
+	mockDeps := mock_glb.NewMockConvertToKtx2ImageDependenciesInterface(ctrl)
 
 	// Test data
 	testData := []byte("test image data")
@@ -96,7 +96,7 @@ func TestToKtx2Image(t *testing.T) {
 	mockDeps.EXPECT().FileRemover(inputPath).Return(nil)
 	mockDeps.EXPECT().FileRemover(outputPath + ".ktx2").Return(nil)
 
-	result, err := toKtx2Image(mockDeps, mode, testData, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+	result, err := convertToKtx2Image(mockDeps, mode, testData, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}

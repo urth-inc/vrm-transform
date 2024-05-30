@@ -12,55 +12,50 @@ import (
 	"github.com/google/uuid"
 	"github.com/h2non/bimg"
 	"github.com/qmuntal/gltf"
-
 	"github.com/urth-inc/vrm-transform/internal/fileUtil"
 	"github.com/urth-inc/vrm-transform/internal/imageUtil"
+	"github.com/urth-inc/vrm-transform/internal/interfaces"
 )
 
-type Ktx2ConversionDependenciesInterface interface {
-	UUIDGenerator() string
-	ContentTypeDetector(data []byte) string
-	ImageSizer(data []byte) (int, int, error)
-	CommandExecutor(name string, args ...string) error
-	ParamsGenerator(mode string, width, height int, inputPath, outputPath string, isSRGB bool, etc1sQuality, uastcQuality, zstdLevel int) []string
-	FileReader(filePath string) ([]byte, error)
-	FileCreator(filePath string) (fileUtil.File, error)
-	FileRemover(filePath string) error
-}
+type DefaultConvertToKtx2ImageDependencies struct{}
 
-type DefaultKtx2ConversionDependencies struct{}
-
-func (d *DefaultKtx2ConversionDependencies) UUIDGenerator() string {
+func (d *DefaultConvertToKtx2ImageDependencies) UUIDGenerator() string {
 	return uuid.New().String()
 }
 
-func (d *DefaultKtx2ConversionDependencies) ContentTypeDetector(data []byte) string {
+func (d *DefaultConvertToKtx2ImageDependencies) ContentTypeDetector(data []byte) string {
 	return http.DetectContentType(data)
 }
 
-func (d *DefaultKtx2ConversionDependencies) ImageSizer(data []byte) (int, int, error) {
+func (d *DefaultConvertToKtx2ImageDependencies) ImageSizer(data []byte) (int, int, error) {
 	return imageUtil.GetImageSize(data)
 }
 
-func (d *DefaultKtx2ConversionDependencies) CommandExecutor(name string, args ...string) error {
+func (d *DefaultConvertToKtx2ImageDependencies) CommandExecutor(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	return cmd.Run()
 }
 
-func (d *DefaultKtx2ConversionDependencies) ParamsGenerator(mode string, width, height int, inputPath, outputPath string, isSRGB bool, etc1sQuality, uastcQuality, zstdLevel int) []string {
+func (d *DefaultConvertToKtx2ImageDependencies) ParamsGenerator(mode string, width, height int, inputPath, outputPath string, isSRGB bool, etc1sQuality, uastcQuality, zstdLevel int) []string {
 	return getKtx2Params(mode, width, height, inputPath, outputPath, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 }
 
-func (d *DefaultKtx2ConversionDependencies) FileReader(filePath string) ([]byte, error) {
+func (d *DefaultConvertToKtx2ImageDependencies) FileReader(filePath string) ([]byte, error) {
 	return fileUtil.ReadFile(filePath)
 }
 
-func (d *DefaultKtx2ConversionDependencies) FileCreator(filePath string) (fileUtil.File, error) {
+func (d *DefaultConvertToKtx2ImageDependencies) FileCreator(filePath string) (interfaces.File, error) {
 	return os.Create(filePath)
 }
 
-func (d *DefaultKtx2ConversionDependencies) FileRemover(filePath string) error {
+func (d *DefaultConvertToKtx2ImageDependencies) FileRemover(filePath string) error {
 	return os.Remove(filePath)
+}
+
+type DefaultConvertToKtx2TextureDependencies struct{}
+
+func (d *DefaultConvertToKtx2TextureDependencies) ConvertToKtx2Image(deps interfaces.ConvertToKtx2ImageDependenciesInterface, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) ([]byte, error) {
+	return convertToKtx2Image(deps, ktx2Mode, buf, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 }
 
 func resizeImage(buf []byte, width, height int) (image []byte, err error) {
@@ -126,7 +121,7 @@ func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, out
 	return params
 }
 
-func toKtx2Image(deps Ktx2ConversionDependenciesInterface, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
+func convertToKtx2Image(deps interfaces.ConvertToKtx2ImageDependenciesInterface, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
 	var mimeType string = deps.ContentTypeDetector(buf)
 	var inputPath string = "/tmp/" + deps.UUIDGenerator()
 	var outputPath string = "/tmp/" + deps.UUIDGenerator()
@@ -268,7 +263,7 @@ func getBufferViewIndex2TextureIndex(gltfDocument gltf.Document) map[uint32][]ui
 	return bufferViewToTextures
 }
 
-func (g *GLB) ToKtx2Texture(ktx2Mode string, etc1sQuality int, uastcQuality int, zstdLevel int) (err error) {
+func (g *GLB) ToKtx2Texture(deps interfaces.ConvertToKtx2TextureDependenciesInterface, ktx2Mode string, etc1sQuality int, uastcQuality int, zstdLevel int) (err error) {
 	var jsonDocument gltf.Document = g.GltfDocument
 	var bin []byte = g.BIN
 
@@ -305,7 +300,8 @@ func (g *GLB) ToKtx2Texture(ktx2Mode string, etc1sQuality int, uastcQuality int,
 			// 	}
 			// }
 
-			img, err := toKtx2Image(&DefaultKtx2ConversionDependencies{}, ktx2Mode, data, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+			img, err := deps.ConvertToKtx2Image(&DefaultConvertToKtx2ImageDependencies{}, ktx2Mode, data, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+
 			if err != nil {
 				return err
 			}

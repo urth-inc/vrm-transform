@@ -5,11 +5,6 @@ import (
 	"os"
 )
 
-type File interface {
-	Write(p []byte) (n int, err error)
-	Close() error
-}
-
 func ReadFile(filePath string) (buf []byte, err error) {
 	file, err := os.Open(filePath)
 	if err != nil {

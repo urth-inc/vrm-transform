@@ -71,7 +71,7 @@ func TestGetKtx2Params(t *testing.T) {
 	}
 }
 
-// TestConvertToKtx2Image tests the convertToKtx2Image utility function
+// TestConvertToKtx2Image tests the ConvertToKtx2Image utility function
 func TestToKtx2Image(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -103,7 +103,7 @@ func TestToKtx2Image(t *testing.T) {
 	mockDeps.EXPECT().FileRemover(inputPath).Return(nil)
 	mockDeps.EXPECT().FileRemover(outputPath + ".ktx2").Return(nil)
 
-	result, err := convertToKtx2Image(mockDeps, mode, testData, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+	result, err := ConvertToKtx2Image(mockDeps, mode, testData, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}

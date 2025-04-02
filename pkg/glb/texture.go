@@ -55,7 +55,7 @@ func (d *DefaultConvertToKtx2ImageDependencies) FileRemover(filePath string) err
 type DefaultConvertToKtx2TextureDependencies struct{}
 
 func (d *DefaultConvertToKtx2TextureDependencies) ConvertToKtx2Image(deps interfaces.ConvertToKtx2ImageDependenciesInterface, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) ([]byte, error) {
-	return convertToKtx2Image(deps, ktx2Mode, buf, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
+	return ConvertToKtx2Image(deps, ktx2Mode, buf, isSRGB, etc1sQuality, uastcQuality, zstdLevel)
 }
 
 func resizeImage(buf []byte, width, height int) (image []byte, err error) {
@@ -121,7 +121,7 @@ func getKtx2Params(ktx2Mode string, width int, height int, inputPath string, out
 	return params
 }
 
-func convertToKtx2Image(deps interfaces.ConvertToKtx2ImageDependenciesInterface, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
+func ConvertToKtx2Image(deps interfaces.ConvertToKtx2ImageDependenciesInterface, ktx2Mode string, buf []byte, isSRGB bool, etc1sQuality int, uastcQuality int, zstdLevel int) (image []byte, err error) {
 	var mimeType string = deps.ContentTypeDetector(buf)
 	var inputPath string = "/tmp/" + deps.UUIDGenerator()
 	var outputPath string = "/tmp/" + deps.UUIDGenerator()
